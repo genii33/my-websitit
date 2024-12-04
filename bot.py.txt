@@ -1,0 +1,103 @@
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+import random
+
+# Логирование
+import logging
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logger = logging.getLogger(name)
+
+# Глобальное хранилище для проверки капчи
+captcha_storage = {}
+
+# Стартовая команда
+def start(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    update.message.reply_text(
+        "Добро пожаловать! Чтобы начать работу, пройдите простую проверку: выберите правильный фрукт."
+    )
+    send_captcha(update, context)
+
+# Отправка капчи
+def send_captcha(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    fruits = ["🍎 Яблоко", "🍌 Банан", "🍇 Виноград", "🍊 Апельсин", "🍒 Вишня", "🍍 Ананас"]
+    correct_fruit = random.choice(fruits)
+
+    # Сохраняем правильный фрукт для пользователя
+    captcha_storage[user_id] = correct_fruit
+
+    keyboard = [
+        [InlineKeyboardButton(fruit, callback_data=fruit) for fruit in fruits[:3]],
+        [InlineKeyboardButton(fruit, callback_data=fruit) for fruit in fruits[3:]],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text("Выберите правильный фрукт:", reply_markup=reply_markup)
+
+# Обработка выбора капчи
+def handle_captcha(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    user_id = query.from_user.id
+    selected_fruit = query.data
+    correct_fruit = captcha_storage.get(user_id)
+
+    if selected_fruit == correct_fruit:
+        query.answer("Верно!")
+        query.edit_message_text("Вы прошли проверку! Добро пожаловать в главное меню.")
+        send_main_menu(update, context)
+    else:
+        query.answer("Неправильно. Попробуйте снова.")
+        send_captcha(update, context)
+
+# Главное меню
+def send_main_menu(update: Update, context: CallbackContext) -> None:
+    keyboard = [
+        [InlineKeyboardButton("🔍 Поиск", callback_data="menu_search")],
+        [InlineKeyboardButton("👤 Профиль", callback_data="menu_profile")],
+        [InlineKeyboardButton("💼 Сделки", callback_data="menu_deals")],
+        [InlineKeyboardButton("❓ Помощь", callback_data="menu_help")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Отправка меню в зависимости от контекста
+    if update.callback_query:
+        query = update.callback_query
+        query.edit_message_text("Главное меню:", reply_markup=reply_markup)
+    else:
+        update.message.reply_text("Главное меню:", reply_markup=reply_markup)
+
+# Обработка выбора в главном меню
+def handle_menu(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    choice = query.data
+
+    if choice == "menu_search":
+        query.answer("Раздел 'Поиск'. Пока не реализовано.")
+        query.edit_message_text("🔍 Раздел 'Поиск' (в разработке).")
+    elif choice == "menu_profile":
+        query.answer("Раздел 'Профиль'. Пока не реализовано.")
+        query.edit_message_text("👤 Раздел 'Профиль' (в разработке).")
+    elif choice == "menu_deals":
+        query.answer("Раздел 'Сделки'. Пока не реализовано.")
+        query.edit_message_text("💼 Раздел 'Сделки' (в разработке).")
+    elif choice == "menu_help":
+        query.answer("Раздел 'Помощь'.")
+        query.edit_message_text("❓ Вот как я могу помочь:\n- Команда /start для начала работы\n- Используйте кнопки для навигации.")
+
+# Основная функция
+def main():
+    # Вставьте свой токен бота
+    TOKEN = "7840898061:AAH08uegj_mZvmC5hTHBfFZMksSz1AyUeCw"
+    updater = Updater(TOKEN)
+
+    # Регистрация обработчиков команд и кнопок
+    updater.dispatcher.add_handler(CommandHandler("start", start))
+    updater.dispatcher.add_handler(CallbackQueryHandler(handle_captcha, pattern="^🍎|🍌|🍇|🍊|🍒|🍍$"))
+    updater.dispatcher.add_handler(CallbackQueryHandler(handle_menu, pattern="^menu_"))
+
+    # Запуск бота
+    updater.start_polling()
+    updater.idle()
+
+if name == "main":
+    main()
